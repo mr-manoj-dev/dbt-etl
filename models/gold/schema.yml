@@ -1,0 +1,207 @@
+version: 2
+
+models:
+  - name: gold_ticket_sales_daily
+    description: >
+      Daily ticket sales fact table. Grain: one row per event × day × platform × region × channel.
+      Pre-aggregated for BI layer performance. Primary model for revenue and volume dashboards
+      including channel attribution breakdown.
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: false
+      layer: gold
+    columns:
+      - name: daily_sales_key
+        description: Surrogate key for the grain (event × date × platform × country × channel).
+        tests:
+          - not_null
+          - unique
+      - name: sale_date
+        description: Date of the ticket purchases in this row.
+        tests:
+          - not_null
+      - name: event_id
+        description: FK to silver_events.
+        tests:
+          - not_null
+      - name: platform_region
+        description: "Geographic region of the platform: US, EU, APAC, LATAM."
+        tests:
+          - not_null
+      - name: channel_name
+        description: Human-readable name of the sales channel.
+      - name: channel_type
+        description: "Channel type: DIRECT, PARTNER, or VENDOR."
+      - name: tickets_sold
+        description: Number of booked tickets for this grain.
+        tests:
+          - not_null
+      - name: revenue_usd
+        description: Total revenue from booked tickets in USD.
+        tests:
+          - not_null
+      - name: revenue_by_channel_usd
+        description: Revenue attributed to this specific channel in USD.
+      - name: _dbt_loaded_at
+        description: Timestamp when dbt last processed this record.
+
+  - name: gold_event_performance
+    description: >
+      Event-level commercial performance summary. Grain: one row per event_id.
+      Covers sell-through rate, revenue, cancellation/refund rates, and channel diversification.
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: false
+      layer: gold
+    columns:
+      - name: event_id
+        description: Unique event identifier.
+        tests:
+          - not_null
+          - unique
+      - name: tickets_sold
+        description: Total booked tickets for this event.
+        tests:
+          - not_null
+      - name: total_revenue_usd
+        description: Total booked revenue in USD.
+        tests:
+          - not_null
+      - name: sell_through_rate_pct
+        description: Percentage of capacity sold (booked / capacity × 100).
+      - name: cancellation_rate_pct
+        description: Percentage of all ticket events that are cancellations.
+      - name: refund_rate_pct
+        description: Percentage of all ticket events that are refunds.
+      - name: channel_count
+        description: Number of distinct channels that sold tickets to this event.
+
+  - name: gold_customer_behaviour
+    description: >
+      Customer lifetime behaviour summary. Grain: one row per customer_id.
+      Contains PII fields (first_name, last_name, email, phone) as-is per MVP scope.
+      Masking is planned for post-MVP.
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: true
+      layer: gold
+    columns:
+      - name: customer_id
+        description: Unique customer identifier.
+        tests:
+          - not_null
+          - unique
+      - name: lifetime_spend_usd
+        description: Total USD spend across all booked tickets.
+        tests:
+          - not_null
+      - name: total_tickets_purchased
+        description: Total number of booked tickets.
+        tests:
+          - not_null
+      - name: preferred_channel
+        description: The channel through which this customer purchased most frequently.
+      - name: days_since_last_purchase
+        description: Days since the customer's most recent ticket purchase.
+
+  - name: gold_regional_summary
+    description: >
+      Regional monthly roll-up. Grain: one row per platform_region × year_month.
+      Includes channel attribution breakdown (DIRECT/PARTNER/VENDOR split) and
+      top-performing channel by revenue per region and month.
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: false
+      layer: gold
+    columns:
+      - name: platform_region
+        description: Geographic region of the platform.
+        tests:
+          - not_null
+      - name: year_month
+        description: "Month of the summary in YYYY-MM format."
+        tests:
+          - not_null
+      - name: total_revenue_usd
+        description: Total booked revenue in USD for this region and month.
+        tests:
+          - not_null
+      - name: top_channel_by_revenue
+        description: The channel name that generated the most revenue in this region/month.
+      - name: direct_revenue_pct
+        description: "Percentage of revenue from DIRECT channels (0-100)."
+      - name: partner_revenue_pct
+        description: "Percentage of revenue from PARTNER channels (0-100)."
+      - name: vendor_revenue_pct
+        description: "Percentage of revenue from VENDOR channels (0-100)."
+      - name: direct_vs_partner_vs_vendor_split
+        description: Formatted label showing the three-way revenue percentage split.
+
+  - name: gold_channel_performance
+    description: >
+      Monthly channel performance summary for the CIO channel strategy dashboard
+      and partner performance reviews. Grain: one row per channel_id × year_month.
+      Includes channel_revenue_share_pct which sums to 100% across all channels
+      within a given month (validated by singular test assert_channel_revenue_share_sums_to_100).
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: false
+      layer: gold
+    columns:
+      - name: year_month
+        description: "Month of the summary in YYYY-MM format."
+        tests:
+          - not_null
+      - name: channel_id
+        description: FK to silver_channels.
+        tests:
+          - not_null
+      - name: channel_name
+        description: Human-readable channel name.
+        tests:
+          - not_null
+      - name: channel_type
+        description: "Channel type: DIRECT, PARTNER, or VENDOR."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['DIRECT', 'PARTNER', 'VENDOR']
+      - name: total_tickets_sold
+        description: Total booked tickets via this channel in the month.
+        tests:
+          - not_null
+      - name: total_revenue_usd
+        description: Total booked revenue via this channel in USD.
+        tests:
+          - not_null
+      - name: avg_ticket_price_usd
+        description: Average ticket price in USD for booked tickets.
+        tests:
+          - not_null
+      - name: cancellation_rate
+        description: "Cancellation rate as a percentage (0-100)."
+        tests:
+          - not_null
+      - name: refund_rate
+        description: "Refund rate as a percentage (0-100)."
+        tests:
+          - not_null
+      - name: unique_customers
+        description: Number of distinct customers who transacted via this channel.
+        tests:
+          - not_null
+      - name: unique_events
+        description: Number of distinct events for which tickets were sold via this channel.
+        tests:
+          - not_null
+      - name: channel_revenue_share_pct
+        description: >
+          This channel's percentage share of total platform revenue for the month.
+          Across all channels in a given month, this column sums to 100.
+        tests:
+          - not_null

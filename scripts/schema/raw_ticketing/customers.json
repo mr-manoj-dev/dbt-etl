@@ -1,0 +1,89 @@
+{
+  "tableReference": {
+    "projectId": "${PROJECT_ID}",
+    "datasetId": "raw_ticketing",
+    "tableId": "customers"
+  },
+  "description": "Raw customer profile records from all ticketing platforms. Contains PII fields (first_name, last_name, email, phone) — ingested as-is per MVP scope. PII masking is planned for post-MVP. Deduplication and standardisation happens in silver_customers. Consumed by: silver_customers → gold_customer_behaviour.",
+  "labels": {
+    "layer": "raw",
+    "domain": "ticketing",
+    "team": "data_engineering",
+    "pii_present": "true",
+    "managed_by": "bq_cli",
+    "silver_model": "silver_customers",
+    "env": "${ENV}"
+  },
+  "schema": {
+    "fields": [
+      {
+        "name": "customer_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Unique identifier for the customer, assigned by the source platform. Natural key — deduplicated in silver_customers keeping the latest record."
+      },
+      {
+        "name": "first_name",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "PII: Customer first name. Ingested as-is per MVP scope. To be masked in post-MVP phase."
+      },
+      {
+        "name": "last_name",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "PII: Customer last name. Ingested as-is per MVP scope. To be masked in post-MVP phase."
+      },
+      {
+        "name": "email",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "PII: Customer email address. Ingested as-is per MVP scope. To be masked in post-MVP phase."
+      },
+      {
+        "name": "phone",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "PII: Customer phone number. Ingested as-is per MVP scope. To be masked in post-MVP phase."
+      },
+      {
+        "name": "country_of_residence",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "ISO 3166-1 alpha-2 country code of the customer's country of residence. Standardised to UPPER in silver_customers. Used as a regional dimension in gold_customer_behaviour."
+      },
+      {
+        "name": "signup_date",
+        "type": "DATE",
+        "mode": "NULLABLE",
+        "description": "Date the customer first registered on the platform. Cast to DATE in silver_customers. Used to derive customer_tenure_days in gold_customer_behaviour."
+      },
+      {
+        "name": "loyalty_tier",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Loyalty programme tier. Accepted values: BRONZE, SILVER, GOLD, PLATINUM. Standardised to UPPER in silver_customers. Used as a segmentation dimension in gold_customer_behaviour."
+      },
+      {
+        "name": "platform_source",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Platform where the customer originally registered. Standardised to UPPER in silver_customers."
+      },
+      {
+        "name": "ingested_at",
+        "type": "TIMESTAMP",
+        "mode": "REQUIRED",
+        "description": "UTC timestamp when this record was written to BigQuery by the ingestion pipeline. Used as the incremental predicate in silver_customers (3-day lookback window)."
+      }
+    ]
+  },
+  "timePartitioning": {
+    "type": "DAY",
+    "field": "ingested_at",
+    "requirePartitionFilter": false
+  },
+  "clustering": {
+    "fields": ["country_of_residence", "loyalty_tier"]
+  }
+}

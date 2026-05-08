@@ -1,0 +1,89 @@
+{
+  "tableReference": {
+    "projectId": "${PROJECT_ID}",
+    "datasetId": "raw_ticketing",
+    "tableId": "events"
+  },
+  "description": "Raw event records ingested from all ticketing platforms. One row per event per ingestion batch. Deduplication and standardisation happens in the Silver layer (silver_events). Consumed by: silver_events → gold_ticket_sales_daily, gold_event_performance, gold_regional_summary, gold_channel_performance.",
+  "labels": {
+    "layer": "raw",
+    "domain": "ticketing",
+    "team": "data_engineering",
+    "pii_present": "false",
+    "managed_by": "bq_cli",
+    "silver_model": "silver_events",
+    "env": "${ENV}"
+  },
+  "schema": {
+    "fields": [
+      {
+        "name": "event_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Unique identifier for the event, assigned by the source ticketing platform. Natural key — not globally unique across platforms until deduplicated in silver_events."
+      },
+      {
+        "name": "event_name",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Human-readable name of the event as supplied by the platform. Standardised to INITCAP in silver_events."
+      },
+      {
+        "name": "event_category",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Category of the event e.g. Concert, Sports, Theatre, Comedy. Standardised to INITCAP in silver_events. Used as a dimension in gold_event_performance."
+      },
+      {
+        "name": "venue_name",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Name of the venue hosting the event. Standardised to INITCAP in silver_events."
+      },
+      {
+        "name": "venue_city",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "City where the venue is located. Standardised to INITCAP in silver_events."
+      },
+      {
+        "name": "venue_country",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "ISO 3166-1 alpha-2 country code of the venue (e.g. US, GB, DE). Standardised to UPPER in silver_events. Used as a regional dimension in gold_regional_summary."
+      },
+      {
+        "name": "event_date",
+        "type": "DATE",
+        "mode": "NULLABLE",
+        "description": "Scheduled date of the event. Cast to DATE in silver_events. Records with null event_date are filtered out in Silver."
+      },
+      {
+        "name": "event_capacity",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "Maximum number of attendees for this event. Used to compute sell_through_rate_pct in gold_event_performance."
+      },
+      {
+        "name": "platform_source",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Name of the originating ticketing platform that emitted this record. Standardised to UPPER in silver_events. Joined to silver_platforms via platform_name in gold models."
+      },
+      {
+        "name": "ingested_at",
+        "type": "TIMESTAMP",
+        "mode": "REQUIRED",
+        "description": "UTC timestamp when this record was written to BigQuery by the ingestion pipeline. Used as the incremental predicate in silver_events (3-day lookback window)."
+      }
+    ]
+  },
+  "timePartitioning": {
+    "type": "DAY",
+    "field": "ingested_at",
+    "requirePartitionFilter": false
+  },
+  "clustering": {
+    "fields": ["venue_country", "platform_source"]
+  }
+}

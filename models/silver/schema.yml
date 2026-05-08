@@ -1,0 +1,226 @@
+version: 2
+
+models:
+  - name: silver_events
+    description: >
+      Cleaned and deduplicated event dimension from raw_ticketing.events.
+      One row per event_id (latest ingested record). All text fields are
+      standardised (INITCAP/UPPER). Used as the event dimension in all gold models.
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: false
+      layer: silver
+    columns:
+      - name: event_id
+        description: Unique identifier for the event (natural key from source platform).
+        tests:
+          - not_null
+          - unique
+      - name: event_name
+        description: Standardised (INITCAP) event name.
+        tests:
+          - not_null
+      - name: event_category
+        description: Standardised event category (Concert, Sports, Theatre, etc.).
+      - name: venue_name
+        description: Standardised venue name.
+      - name: venue_city
+        description: Standardised venue city.
+      - name: venue_country
+        description: ISO country code (UPPER) of the venue.
+      - name: event_date
+        description: Scheduled date of the event (DATE type).
+        tests:
+          - not_null
+      - name: event_capacity
+        description: Maximum attendance capacity (INT64).
+      - name: platform_source
+        description: Originating platform (UPPER).
+      - name: ingested_at
+        description: Timestamp when the raw record was written to BigQuery.
+        tests:
+          - not_null
+      - name: _dbt_loaded_at
+        description: Timestamp when dbt last processed this record.
+
+  - name: silver_customers
+    description: >
+      Cleaned and deduplicated customer dimension from raw_ticketing.customers.
+      One row per customer_id (latest ingested version). PII fields (first_name,
+      last_name, email, phone) are ingested as-is per MVP scope.
+      Masking is planned for the post-MVP phase.
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: true
+      layer: silver
+    columns:
+      - name: customer_id
+        description: Unique identifier for the customer.
+        tests:
+          - not_null
+          - unique
+      - name: first_name
+        description: "Customer first name. PII: to be masked in post-MVP."
+      - name: last_name
+        description: "Customer last name. PII: to be masked in post-MVP."
+      - name: email
+        description: "Customer email address. PII: to be masked in post-MVP."
+      - name: phone
+        description: "Customer phone number. PII: to be masked in post-MVP."
+      - name: country_of_residence
+        description: ISO country code (UPPER) of customer's residence.
+      - name: signup_date
+        description: Date the customer registered (DATE type).
+      - name: loyalty_tier
+        description: "Loyalty tier (UPPER): BRONZE, SILVER, GOLD, PLATINUM."
+        tests:
+          - accepted_values:
+              values: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM']
+      - name: platform_source
+        description: Platform where the customer originally registered.
+      - name: ingested_at
+        description: Timestamp when the raw record was written to BigQuery.
+      - name: _dbt_loaded_at
+        description: Timestamp when dbt last processed this record.
+
+  - name: silver_tickets
+    description: >
+      Cleaned and deduplicated ticket fact table from raw_ticketing.tickets.
+      One row per ticket_id (latest ingested version). Face values are normalised
+      to USD via the currency_rates seed. Partitioned by purchase_date for
+      efficient querying. Includes channel_id FK for channel attribution.
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: false
+      layer: silver
+    columns:
+      - name: ticket_id
+        description: Unique identifier for the ticket transaction.
+        tests:
+          - not_null
+          - unique
+      - name: event_id
+        description: FK to silver_events.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_events')
+              field: event_id
+      - name: customer_id
+        description: FK to silver_customers.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+      - name: channel_id
+        description: FK to silver_channels — the sales channel for this ticket.
+        tests:
+          - not_null
+      - name: ticket_type
+        description: Ticket type (Standard, VIP, Early Bird, etc.).
+      - name: face_value
+        description: Original face value in source currency.
+      - name: currency
+        description: ISO 4217 currency code of face_value.
+      - name: face_value_usd
+        description: Face value normalised to USD using the currency_rates seed.
+      - name: purchase_timestamp
+        description: UTC timestamp of ticket purchase.
+        tests:
+          - not_null
+      - name: purchase_date
+        description: DATE portion of purchase_timestamp — used for partitioning.
+      - name: ticket_status
+        description: "Ticket lifecycle status: booked | cancelled | refunded."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['booked', 'cancelled', 'refunded']
+      - name: discount_code
+        description: Promotional discount code applied (nullable).
+      - name: platform_source
+        description: Originating ticketing platform.
+      - name: ingested_at
+        description: Timestamp when the raw record was written to BigQuery.
+      - name: _dbt_loaded_at
+        description: Timestamp when dbt last processed this record.
+
+  - name: silver_platforms
+    description: >
+      Cleaned platform reference dimension from raw_ticketing.platforms.
+      Full refresh table (small reference dataset). Provides regional context
+      consumed by gold models for regional breakdowns.
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: false
+      layer: silver
+    columns:
+      - name: platform_id
+        description: Unique platform identifier.
+        tests:
+          - not_null
+          - unique
+      - name: platform_name
+        description: Standardised (INITCAP) platform name.
+        tests:
+          - not_null
+      - name: platform_region
+        description: "Primary region (UPPER): US, EU, APAC, LATAM."
+      - name: launch_date
+        description: Date the platform launched (DATE type).
+      - name: is_active
+        description: Whether the platform is currently active (BOOL).
+      - name: _dbt_loaded_at
+        description: Timestamp when dbt last processed this record.
+
+  - name: silver_channels
+    description: >
+      Cleaned and deduplicated channel reference dimension from raw_ticketing.channels.
+      Only active channels (is_active = TRUE) are exposed to downstream consumers.
+      Includes channel_age_days as a derived operational metric.
+      Joined to silver_tickets via channel_id in all gold channel models.
+    meta:
+      owner: data_engineering
+      team: platform
+      pii_present: false
+      layer: silver
+    columns:
+      - name: channel_id
+        description: Surrogate key for the sales channel.
+        tests:
+          - not_null
+          - unique
+      - name: channel_name
+        description: Standardised (INITCAP) channel name.
+        tests:
+          - not_null
+      - name: channel_type
+        description: "Channel category (UPPER): DIRECT, PARTNER, or VENDOR."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['DIRECT', 'PARTNER', 'VENDOR']
+      - name: channel_description
+        description: Free-text description of the channel.
+      - name: platform_id
+        description: FK to silver_platforms — the platform that owns this channel.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_platforms')
+              field: platform_id
+      - name: is_active
+        description: Whether this channel is live (always TRUE after Silver filter).
+      - name: launch_date
+        description: Date the channel went live (DATE type).
+      - name: channel_age_days
+        description: Number of days since channel launch (derived from launch_date).
+      - name: ingested_at
+        description: Timestamp when the raw record was written to BigQuery.
+      - name: _dbt_loaded_at
+        description: Timestamp when dbt last processed this record.

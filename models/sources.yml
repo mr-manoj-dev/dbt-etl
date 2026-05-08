@@ -1,0 +1,192 @@
+version: 2
+
+sources:
+  - name: raw_ticketing
+    description: >
+      Raw ticketing data ingested from multiple platforms across US, EU, APAC, and LATAM.
+      Data is written directly by upstream ingestion pipelines into BigQuery without transformation.
+    database: "{{ env_var('DBT_RAW_DATABASE', 'gen-lang-client-0194369893') }}"
+    schema: raw_ticketing
+    tags: ["raw", "source"]
+    meta:
+      owner: data_engineering
+      team: platform
+
+    tables:
+      - name: events
+        description: >
+          Raw event records from all ticketing platforms. One row per event per ingestion batch.
+          May contain duplicates if the same event is re-ingested; deduplication happens in Silver.
+        columns:
+          - name: event_id
+            description: Unique identifier for the event (platform-assigned).
+            tests:
+              - not_null
+          - name: event_name
+            description: Human-readable name of the event.
+            tests:
+              - not_null
+          - name: event_category
+            description: "Category of the event e.g. Concert, Sports, Theatre."
+          - name: venue_name
+            description: Name of the venue.
+          - name: venue_city
+            description: City where the venue is located.
+          - name: venue_country
+            description: ISO country code of the venue.
+          - name: event_date
+            description: Scheduled date of the event.
+          - name: event_capacity
+            description: Maximum number of attendees for this event.
+          - name: platform_source
+            description: Originating ticketing platform that emitted this record.
+          - name: ingested_at
+            description: Timestamp when this record landed in BigQuery.
+            tests:
+              - not_null
+
+      - name: customers
+        description: >
+          Raw customer profile records. Contains PII fields (first_name, last_name, email, phone).
+          PII masking is OUT OF SCOPE for MVP — fields are ingested as-is.
+        columns:
+          - name: customer_id
+            description: Unique identifier for the customer (platform-assigned).
+            tests:
+              - not_null
+          - name: first_name
+            description: "Customer first name. PII: to be masked in post-MVP."
+          - name: last_name
+            description: "Customer last name. PII: to be masked in post-MVP."
+          - name: email
+            description: "Customer email address. PII: to be masked in post-MVP."
+          - name: phone
+            description: "Customer phone number. PII: to be masked in post-MVP."
+          - name: country_of_residence
+            description: ISO country code of the customer's country of residence.
+          - name: signup_date
+            description: Date the customer first registered on the platform.
+          - name: loyalty_tier
+            description: "Loyalty programme tier: BRONZE, SILVER, GOLD, PLATINUM."
+          - name: platform_source
+            description: Platform where the customer originally registered.
+          - name: ingested_at
+            description: Timestamp when this record landed in BigQuery.
+            tests:
+              - not_null
+
+      - name: tickets
+        description: >
+          Raw ticket transaction records. Covers all ticket lifecycle events:
+          booked, cancelled, and refunded. channel_id is a FK to raw_ticketing.channels.
+        columns:
+          - name: ticket_id
+            description: Unique identifier for the ticket transaction.
+            tests:
+              - not_null
+              - unique
+          - name: event_id
+            description: FK to raw_ticketing.events.
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw_ticketing', 'events')
+                  field: event_id
+          - name: customer_id
+            description: FK to raw_ticketing.customers.
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw_ticketing', 'customers')
+                  field: customer_id
+          - name: ticket_type
+            description: "Type of ticket e.g. Standard, VIP, Early Bird."
+          - name: face_value
+            description: Original face value of the ticket in the source currency.
+          - name: currency
+            description: ISO 4217 currency code of the face_value.
+          - name: purchase_timestamp
+            description: UTC timestamp when the ticket was purchased.
+            tests:
+              - not_null
+          - name: ticket_status
+            description: "Current lifecycle status: booked | cancelled | refunded."
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['booked', 'cancelled', 'refunded']
+          - name: discount_code
+            description: Promotional discount code applied (nullable).
+          - name: platform_source
+            description: Originating ticketing platform.
+          - name: channel_id
+            description: FK to raw_ticketing.channels — the sales channel.
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw_ticketing', 'channels')
+                  field: channel_id
+          - name: ingested_at
+            description: Timestamp when this record landed in BigQuery.
+            tests:
+              - not_null
+
+      - name: platforms
+        description: >
+          Reference table of all ticketing platforms in the network.
+          Includes regional and activity metadata.
+        columns:
+          - name: platform_id
+            description: Unique identifier for the platform.
+            tests:
+              - not_null
+              - unique
+          - name: platform_name
+            description: Human-readable platform name.
+            tests:
+              - not_null
+          - name: platform_region
+            description: "Primary region of operation: US, EU, APAC, LATAM."
+          - name: launch_date
+            description: Date when the platform went live.
+          - name: is_active
+            description: Whether the platform is currently active.
+
+      - name: channels
+        description: >
+          Reference table of all sales channels through which tickets are sold.
+          Each channel is owned by a specific platform. channel_type indicates
+          whether it is a direct, partner, or vendor channel.
+        columns:
+          - name: channel_id
+            description: Surrogate key for the sales channel.
+            tests:
+              - not_null
+              - unique
+          - name: channel_name
+            description: "Human-readable channel name e.g. Mobile App, Website, Partner Portal, Third Party Vendor."
+            tests:
+              - not_null
+          - name: channel_type
+            description: "Category of the channel: DIRECT | PARTNER | VENDOR."
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['DIRECT', 'PARTNER', 'VENDOR']
+          - name: channel_description
+            description: Free-text description of the channel.
+          - name: platform_id
+            description: FK to raw_ticketing.platforms — the platform that owns this channel.
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw_ticketing', 'platforms')
+                  field: platform_id
+          - name: is_active
+            description: Whether this channel is currently live.
+          - name: launch_date
+            description: Date when this channel went live.
+          - name: ingested_at
+            description: Timestamp when this record landed in BigQuery.
+            tests:
+              - not_null

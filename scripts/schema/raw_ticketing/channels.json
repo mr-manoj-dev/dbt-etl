@@ -1,0 +1,77 @@
+{
+  "tableReference": {
+    "projectId": "${PROJECT_ID}",
+    "datasetId": "raw_ticketing",
+    "tableId": "channels"
+  },
+  "description": "Reference table of all sales channels through which tickets are sold. Each channel is owned by a specific platform (platform_id FK). channel_type categorises channels as DIRECT, PARTNER, or VENDOR — the three-way split that drives channel attribution in the Gold layer. Cleaned and deduplicated in silver_channels (incremental, active-only). Consumed by: silver_channels → gold_ticket_sales_daily, gold_regional_summary, gold_channel_performance (CIO channel strategy dashboard).",
+  "labels": {
+    "layer": "raw",
+    "domain": "ticketing",
+    "team": "data_engineering",
+    "pii_present": "false",
+    "managed_by": "bq_cli",
+    "silver_model": "silver_channels",
+    "env": "${ENV}"
+  },
+  "schema": {
+    "fields": [
+      {
+        "name": "channel_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Surrogate key for the sales channel. Primary key — tested with not_null and unique in sources.yml. Referenced as FK from raw_ticketing.tickets.channel_id. Core join key for all channel attribution in Silver and Gold layers."
+      },
+      {
+        "name": "channel_name",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Human-readable channel name e.g. Mobile App, Website, Partner Portal, Third Party Vendor. Standardised to INITCAP in silver_channels. Exposed as a dimension in gold_ticket_sales_daily and gold_channel_performance."
+      },
+      {
+        "name": "channel_type",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Category of the channel. Accepted values: DIRECT | PARTNER | VENDOR. Standardised to UPPER in silver_channels. Drives the direct_vs_partner_vs_vendor_split metric in gold_regional_summary and the channel_revenue_share_pct breakdown in gold_channel_performance."
+      },
+      {
+        "name": "channel_description",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Free-text description of the channel and its operational context. Passed through to silver_channels as-is (trimmed)."
+      },
+      {
+        "name": "platform_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "FK to raw_ticketing.platforms.platform_id. Identifies which platform owns and operates this channel. Relationship tested in sources.yml. Used to join silver_channels to silver_platforms in gold_channel_performance."
+      },
+      {
+        "name": "is_active",
+        "type": "BOOLEAN",
+        "mode": "NULLABLE",
+        "description": "Whether this channel is currently live and accepting ticket sales. silver_channels filters to is_active = TRUE only, so inactive channels are excluded from all Silver and Gold models."
+      },
+      {
+        "name": "launch_date",
+        "type": "DATE",
+        "mode": "NULLABLE",
+        "description": "Date when this channel went live. Cast to DATE in silver_channels. Used to derive channel_age_days = DATE_DIFF(CURRENT_DATE, launch_date, DAY) in silver_channels."
+      },
+      {
+        "name": "ingested_at",
+        "type": "TIMESTAMP",
+        "mode": "REQUIRED",
+        "description": "UTC timestamp when this record was written to BigQuery by the ingestion pipeline. Used as the incremental predicate in silver_channels (3-day lookback window)."
+      }
+    ]
+  },
+  "timePartitioning": {
+    "type": "DAY",
+    "field": "ingested_at",
+    "requirePartitionFilter": false
+  },
+  "clustering": {
+    "fields": ["channel_type", "platform_id"]
+  }
+}

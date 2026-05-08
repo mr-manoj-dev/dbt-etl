@@ -1,0 +1,47 @@
+name: 'ticketing_analytics'
+version: '1.0.0'
+config-version: 2
+
+# Profile used to connect to BigQuery
+profile: 'ticketing_analytics'
+
+# Paths
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+# Target output
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  ticketing_analytics:
+    silver:
+      +schema: silver
+      +materialized: view
+      +tags: ["silver", "medallion"]
+      +meta:
+        layer: silver
+        team: data_engineering
+
+    gold:
+      +schema: gold
+      +materialized: table
+      +tags: ["gold", "medallion"]
+      +meta:
+        layer: gold
+        team: data_engineering
+
+seeds:
+  ticketing_analytics:
+    +schema: seeds
+    currency_rates:
+      +column_types:
+        from_currency: string
+        to_currency: string
+        rate: float64
+        effective_date: date

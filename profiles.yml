@@ -1,0 +1,23 @@
+ticketing_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: gen-lang-client-0194369893        # Replace with your GCP project ID
+      dataset: dbt_dev                     # Developer sandbox dataset
+      location: us-central1                 # Restricted by GCP org policy
+      threads: 4
+      timeout_seconds: 300
+      priority: interactive
+
+    prod:
+      type: bigquery
+      method: service-account
+      project: gen-lang-client-0194369893        # Replace with your GCP project ID
+      dataset: dbt_prod
+      location: us-central1
+      threads: 8
+      timeout_seconds: 600
+      priority: batch
+      keyfile: /path/to/service-account.json  # Replace with your SA key path

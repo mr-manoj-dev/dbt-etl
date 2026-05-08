@@ -1,0 +1,62 @@
+{
+    "tableReference": {
+        "projectId": "${PROJECT_ID}",
+        "datasetId": "raw_ticketing",
+        "tableId": "platforms"
+    },
+    "description": "Reference table of all ticketing platforms in the network. Small, slowly-changing dimension (SCD-1) — only current state is retained. Cleaned and deduplicated in silver_platforms (full refresh). Joined to silver_tickets via platform_source=platform_name in gold_ticket_sales_daily, gold_regional_summary, and gold_channel_performance to provide regional context.",
+    "labels": {
+        "layer": "raw",
+        "domain": "ticketing",
+        "team": "data_engineering",
+        "pii_present": "false",
+        "managed_by": "bq_cli",
+        "silver_model": "silver_platforms",
+        "env": "${ENV}"
+    },
+    "schema": {
+        "fields": [
+            {
+                "name": "platform_id",
+                "type": "STRING",
+                "mode": "REQUIRED",
+                "description": "Unique identifier for the ticketing platform. Primary key — tested with not_null and unique in sources.yml. Referenced as FK from raw_ticketing.channels.platform_id."
+            },
+            {
+                "name": "platform_name",
+                "type": "STRING",
+                "mode": "REQUIRED",
+                "description": "Human-readable platform name. Standardised to INITCAP in silver_platforms. Used as the join key between silver_tickets.platform_source and silver_platforms in Gold models."
+            },
+            {
+                "name": "platform_region",
+                "type": "STRING",
+                "mode": "NULLABLE",
+                "description": "Primary geographic region of the platform. Expected values: US, EU, APAC, LATAM. Standardised to UPPER in silver_platforms. Core dimension in gold_regional_summary for regional revenue breakdowns."
+            },
+            {
+                "name": "launch_date",
+                "type": "DATE",
+                "mode": "NULLABLE",
+                "description": "Date when this platform went live. Cast to DATE in silver_platforms."
+            },
+            {
+                "name": "is_active",
+                "type": "BOOLEAN",
+                "mode": "NULLABLE",
+                "description": "Whether the platform is currently active and processing ticket sales. Cast to BOOL in silver_platforms."
+            }
+        ]
+    },
+    "timePartitioning": {
+        "type": "DAY",
+        "field": "launch_date",
+        "requirePartitionFilter": false
+    },
+    "clustering": {
+        "fields": [
+            "platform_region",
+            "is_active"
+        ]
+    }
+}

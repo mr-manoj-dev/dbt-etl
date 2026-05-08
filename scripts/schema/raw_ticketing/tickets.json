@@ -1,0 +1,101 @@
+{
+  "tableReference": {
+    "projectId": "${PROJECT_ID}",
+    "datasetId": "raw_ticketing",
+    "tableId": "tickets"
+  },
+  "description": "Raw ticket transaction records covering all ticket lifecycle events: booked, cancelled, and refunded. channel_id is a FK to raw_ticketing.channels. face_value is in the source currency; normalisation to USD happens in silver_tickets via the currency_rates seed. Consumed by: silver_tickets → gold_ticket_sales_daily, gold_event_performance, gold_customer_behaviour, gold_regional_summary, gold_channel_performance.",
+  "labels": {
+    "layer": "raw",
+    "domain": "ticketing",
+    "team": "data_engineering",
+    "pii_present": "false",
+    "managed_by": "bq_cli",
+    "silver_model": "silver_tickets",
+    "env": "${ENV}"
+  },
+  "schema": {
+    "fields": [
+      {
+        "name": "ticket_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Unique identifier for the ticket transaction. Natural key — deduplicated in silver_tickets keeping the latest record. Globally unique across platforms."
+      },
+      {
+        "name": "event_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "FK to raw_ticketing.events.event_id. Links the ticket to its associated event. Relationship tested in sources.yml."
+      },
+      {
+        "name": "customer_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "FK to raw_ticketing.customers.customer_id. Links the ticket to the purchasing customer. Relationship tested in sources.yml."
+      },
+      {
+        "name": "ticket_type",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Type of ticket e.g. Standard, VIP, Early Bird, Group. Standardised to UPPER in silver_tickets."
+      },
+      {
+        "name": "face_value",
+        "type": "NUMERIC",
+        "mode": "NULLABLE",
+        "description": "Original face value of the ticket in the source currency (see currency column). Normalised to USD as face_value_usd in silver_tickets using the currency_rates seed. All Gold models aggregate on face_value_usd."
+      },
+      {
+        "name": "currency",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "ISO 4217 currency code of the face_value (e.g. USD, EUR, GBP). Standardised to UPPER in silver_tickets. Used to look up the exchange rate in the currency_rates seed."
+      },
+      {
+        "name": "purchase_timestamp",
+        "type": "TIMESTAMP",
+        "mode": "REQUIRED",
+        "description": "UTC timestamp when the ticket was purchased. Cast to TIMESTAMP in silver_tickets. Used to derive purchase_date for partitioning."
+      },
+      {
+        "name": "ticket_status",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Current lifecycle status of the ticket. Accepted values: booked | cancelled | refunded. Tested via accepted_values in sources.yml and silver schema.yml. Drives all revenue and volume KPIs in Gold models."
+      },
+      {
+        "name": "discount_code",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Promotional discount code applied at purchase time. Nullable — not all transactions have a discount. Passed through to silver_tickets as-is."
+      },
+      {
+        "name": "platform_source",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Name of the originating ticketing platform. Standardised to UPPER in silver_tickets. Used to join to silver_platforms via platform_name in Gold models."
+      },
+      {
+        "name": "channel_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "FK to raw_ticketing.channels.channel_id. Identifies the sales channel (Mobile App, Website, Partner Portal, Third Party Vendor) through which this ticket was sold. Core field for all channel attribution in Gold layer. Relationship tested in sources.yml."
+      },
+      {
+        "name": "ingested_at",
+        "type": "TIMESTAMP",
+        "mode": "REQUIRED",
+        "description": "UTC timestamp when this record was written to BigQuery by the ingestion pipeline. Used as the incremental predicate in silver_tickets (3-day lookback window). Also used for partition pruning."
+      }
+    ]
+  },
+  "timePartitioning": {
+    "type": "DAY",
+    "field": "purchase_timestamp",
+    "requirePartitionFilter": false
+  },
+  "clustering": {
+    "fields": ["ticket_status", "platform_source", "channel_id"]
+  }
+}
