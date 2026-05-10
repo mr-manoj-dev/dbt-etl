@@ -4,9 +4,9 @@ ticketing_analytics:
     dev:
       type: bigquery
       method: oauth
-      project: gen-lang-client-0194369893        # Replace with your GCP project ID
+      project: techno-pie-mk-01        # Replace with your GCP project ID
       dataset: dbt_dev                     # Developer sandbox dataset
-      location: us-central1                 # Restricted by GCP org policy
+      location: asia-south2                 # Restricted by GCP org policy
       threads: 4
       timeout_seconds: 300
       priority: interactive
@@ -14,9 +14,9 @@ ticketing_analytics:
     prod:
       type: bigquery
       method: service-account
-      project: gen-lang-client-0194369893        # Replace with your GCP project ID
+      project: techno-pie-mk-01        # Replace with your GCP project ID
       dataset: dbt_prod
-      location: us-central1
+      location: asia-south2
       threads: 8
       timeout_seconds: 600
       priority: batch

@@ -46,6 +46,24 @@ channels as (
 
 ),
 
+preferred_channels as (
+
+  select
+    customer_id,
+    channel_id
+  from (
+    select
+      customer_id,
+      channel_id,
+      row_number() over (partition by customer_id order by count(*) desc) as rn
+    from tickets
+    where ticket_status = 'booked' and channel_id is not null
+    group by customer_id, channel_id
+  )
+  where rn = 1
+
+),
+
 customer_metrics as (
 
   select
@@ -85,24 +103,17 @@ customer_metrics as (
     count(distinct t.event_id)                              as unique_events_attended,
 
     -- Channel preference: the channel with the most booked tickets
-    -- (uses ARRAY_AGG with ORDER BY to get the top channel name)
-    (
-      select ch.channel_name
-      from unnest(
-        array_agg(
-          struct(t2.channel_id, count(*) as cnt)
-          order by count(*) desc
-          limit 1
-        )
-      ) as top
-      join {{ ref('silver_channels') }} ch on ch.channel_id = top.channel_id
-    )                                                       as preferred_channel,
+    ch.channel_name                                         as preferred_channel,
 
     current_timestamp()                                     as _dbt_loaded_at
 
   from customers c
   left join tickets t
     on c.customer_id = t.customer_id
+  left join preferred_channels pc
+    on c.customer_id = pc.customer_id
+  left join channels ch
+    on pc.channel_id = ch.channel_id
 
   group by
     c.customer_id,
@@ -113,7 +124,8 @@ customer_metrics as (
     c.country_of_residence,
     c.signup_date,
     c.loyalty_tier,
-    c.platform_source
+    c.platform_source,
+    ch.channel_name
 
 )
 

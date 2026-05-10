@@ -76,11 +76,11 @@ joined as (
 
     -- Surrogate key for the grain (used for BI tool joins)
     {{ dbt_utils.generate_surrogate_key([
-        'purchase_date',
-        'event_id',
-        'platform_id',
-        'venue_country',
-        'channel_id'
+        't.purchase_date',
+        'e.event_id',
+        'p.platform_id',
+        'e.venue_country',
+        'c.channel_id'
     ]) }}                                     as daily_sales_key,
 
     -- Volume metrics

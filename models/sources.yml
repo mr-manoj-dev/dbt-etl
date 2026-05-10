@@ -5,7 +5,7 @@ sources:
     description: >
       Raw ticketing data ingested from multiple platforms across US, EU, APAC, and LATAM.
       Data is written directly by upstream ingestion pipelines into BigQuery without transformation.
-    database: "{{ env_var('DBT_RAW_DATABASE', 'gen-lang-client-0194369893') }}"
+    database: "{{ env_var('DBT_RAW_DATABASE', 'techno-pie-mk-01') }}"
     schema: raw_ticketing
     tags: ["raw", "source"]
     meta:

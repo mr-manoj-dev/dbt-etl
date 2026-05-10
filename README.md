@@ -193,7 +193,7 @@ Masking is planned for the post-MVP phase.
 ### 1. Configure your GCP project
 
 ```bash
-export PROJECT_ID=gen-lang-client-0194369893
+export PROJECT_ID=techno-pie-mk-01
 export ENV=dev
 
 ```

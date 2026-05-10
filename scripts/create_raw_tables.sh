@@ -21,23 +21,23 @@
 #
 # Options:
 #   -p, --project     GCP project ID (required if PROJECT_ID env var not set)
-#   -l, --location    BigQuery location (default: us-central1)
+#   -l, --location    BigQuery location (default: asia-south2)
 #   -r, --recreate    Drop and recreate tables if they already exist
 #   -h, --help        Show this help message
 #
 # Examples:
 #   # Use env vars
-#   export PROJECT_ID=gen-lang-client-0194369893
+#   export PROJECT_ID=techno-pie-mk-01
 #   export ENV=dev
 #   ./scripts/create_raw_tables.sh
 #
 #   # Pass project inline (ENV still required as env var)
 #   export ENV=prod
-#   ./scripts/create_raw_tables.sh --project gen-lang-client-0194369893
+#   ./scripts/create_raw_tables.sh --project techno-pie-mk-01
 #
 #   # Recreate all tables (WARNING: drops existing data)
 #   export ENV=dev
-#   ./scripts/create_raw_tables.sh --project gen-lang-client-0194369893 --recreate
+#   ./scripts/create_raw_tables.sh --project techno-pie-mk-01 --recreate
 #
 # Prerequisites:
 #   - gcloud CLI installed and authenticated (gcloud auth login)
@@ -50,7 +50,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
-LOCATION="${BQ_LOCATION:-us-central1}"
+LOCATION="${BQ_LOCATION:-asia-south2}"
 RECREATE=false
 SCHEMA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/schema/raw_ticketing"
 DATASET="raw_ticketing"
