@@ -1,0 +1,103 @@
+{
+    "tableReference": {
+        "projectId": "${PROJECT_ID}",
+        "datasetId": "silver",
+        "tableId": "silver_channels"
+    },
+    "description": "Cleans and standardises the raw_ticketing.channels reference table. Channels represent the sales pipeline through which tickets reach customers: mobile apps, websites, partner portals, and third-party vendor integrations. This model standardises channel_name and channel_type, filters to only active channels, derives channel_age_days, and deduplicates on channel_id. Consumed by: silver_tickets, gold_ticket_sales_daily, gold_regional_summary, gold_channel_performance.",
+    "labels": {
+        "layer": "silver",
+        "domain": "ticketing",
+        "team": "data_engineering",
+        "pii_present": "false",
+        "managed_by": "bq_cli",
+        "env": "${ENV}"
+    },
+    "schema": {
+        "fields": [
+            {
+                "name": "channel_id",
+                "mode": "",
+                "type": "STRING",
+                "description": "Primary key for the channel",
+                "fields": []
+            },
+            {
+                "name": "channel_name",
+                "mode": "",
+                "type": "STRING",
+                "description": "Standardised channel name (INITCAP)",
+                "fields": []
+            },
+            {
+                "name": "channel_type",
+                "mode": "",
+                "type": "STRING",
+                "description": "Controlled vocabulary for channel type (UPPER)",
+                "fields": []
+            },
+            {
+                "name": "channel_description",
+                "mode": "",
+                "type": "STRING",
+                "description": "Description of the channel",
+                "fields": []
+            },
+            {
+                "name": "platform_id",
+                "mode": "",
+                "type": "STRING",
+                "description": "Foreign key to platforms table",
+                "fields": []
+            },
+            {
+                "name": "is_active",
+                "mode": "",
+                "type": "BOOLEAN",
+                "description": "Flag indicating if the channel is currently active (filtered to true in this model)",
+                "fields": []
+            },
+            {
+                "name": "launch_date",
+                "mode": "",
+                "type": "DATE",
+                "description": "Date the channel was launched",
+                "fields": []
+            },
+            {
+                "name": "channel_age_days",
+                "mode": "",
+                "type": "INTEGER",
+                "description": "Derived operational metric: how many days the channel has been live",
+                "fields": []
+            },
+            {
+                "name": "ingested_at",
+                "mode": "",
+                "type": "TIMESTAMP",
+                "description": "Timestamp when the record was ingested into raw",
+                "fields": []
+            },
+            {
+                "name": "_dbt_loaded_at",
+                "mode": "",
+                "type": "TIMESTAMP",
+                "description": "Timestamp when the record was processed by dbt",
+                "fields": []
+            }
+        ]
+    },
+    "timePartitioning": {
+        "type": "DAY",
+        "field": "launch_date",
+        "requirePartitionFilter": false
+    },
+    "clustering": {
+        "fields": [
+            "channel_name",
+            "channel_type",
+            "platform_id",
+            "is_active"
+        ]
+    }
+}

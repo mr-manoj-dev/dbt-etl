@@ -195,6 +195,7 @@ Masking is planned for the post-MVP phase.
 ```bash
 export PROJECT_ID=techno-pie-mk-01
 export ENV=dev
+export GENERATE_DOCS=false  #set this to true to generate dbt docs
 
 ```
 
